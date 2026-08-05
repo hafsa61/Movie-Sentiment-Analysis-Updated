@@ -1,0 +1,36 @@
+erDiagram
+    MOVIES ||--o{ REVIEWS : "receives"
+    REVIEWERS ||--o{ REVIEWS : "writes"
+    SOURCES ||--o{ REVIEWS : "scraped_from"
+
+    MOVIES {
+        text        movie_id PK "IMDb tconst, e.g. tt0903747"
+        text        title UK "NOT NULL"
+        text        imdb_url UK
+        timestamptz created_at "NOT NULL default now()"
+    }
+
+    REVIEWERS {
+        bigint      reviewer_id PK "identity"
+        text        username UK "NOT NULL"
+        timestamptz created_at "NOT NULL default now()"
+    }
+
+    SOURCES {
+        bigint      source_id PK "identity"
+        text        source_url UK "NOT NULL"
+    }
+
+    REVIEWS {
+        bigint      review_id PK "identity"
+        text        movie_id FK "-> MOVIES.movie_id, NOT NULL"
+        bigint      reviewer_id FK "-> REVIEWERS.reviewer_id, NOT NULL"
+        bigint      source_id FK "-> SOURCES.source_id, NOT NULL"
+        smallint    rating "CHECK 1-10, NULLable (NaN in source)"
+        integer     helpful_upvotes "NOT NULL default 0, CHECK >= 0"
+        integer     helpful_downvotes "NOT NULL default 0, CHECK >= 0"
+        text        summary
+        text        review_text "NOT NULL"
+        text        review_hash UK "sha256(movie_id+reviewer+review_text), dedup key"
+        timestamptz scrape_timestamp "NOT NULL"
+    }

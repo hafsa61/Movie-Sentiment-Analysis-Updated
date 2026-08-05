@@ -1,0 +1,13 @@
+beautifulsoup4==4.12.2
+Flask==2.3.3
+Flask-CORS==4.0.0
+matplotlib
+nltk==3.8.1
+pandas
+psycopg2-binary
+python-dotenv
+requests==2.31.0
+seaborn
+selenium
+sqlalchemy
+webdriver-manager
