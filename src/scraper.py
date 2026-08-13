@@ -97,7 +97,7 @@ class IMDbProductionScraper:
         print("\nBrowser closed and resources cleaned up.")
 
     def get_movie_id(self, movie_name):
-        url = f"https://v3.sg.media-imdb.com/suggestion/x/{quote(movie_name.lower())}.json"
+        url = f"https://v3.sg.media-imdb.com/suggestion/x/{quote(movie_name.lower())}.json"  # noqa: E501
         headers = {"User-Agent": "Mozilla/5.0"}
 
         for attempt in range(3):
@@ -108,11 +108,15 @@ class IMDbProductionScraper:
                 for item in data.get("d", []):
                     movie_id = item.get("id", "")
                     if movie_id.startswith("tt"):
-                        print(f"[Match Found] Title: '{item.get('l')}' -> ID: {movie_id}")
+                        print(
+                            f"[Match Found] Title: '{item.get('l')}' -> ID: {movie_id}"
+                        )
                         return movie_id
             except RequestException as e:
                 wait_time = (2**attempt) + random.uniform(0.5, 1.5)
-                print(f"[Warning] API Network error: {e}. Retrying in {wait_time:.2f}s...")
+                print(
+                    f"[Warning] API Network error: {e}. Retrying in {wait_time:.2f}s..."
+                )
                 time.sleep(wait_time)
         return None
 
@@ -134,7 +138,10 @@ class IMDbProductionScraper:
             try:
                 existing_account_btn = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable(
-                        (By.XPATH, "//*[contains(text(), 'Sign in to an existing account')]")
+                        (
+                            By.XPATH,
+                            "//*[contains(text(), 'Sign in to an existing account')]",
+                        )
                     )
                 )
                 existing_account_btn.click()
@@ -197,7 +204,7 @@ class IMDbProductionScraper:
                     EC.element_to_be_clickable(
                         (
                             By.CSS_SELECTOR,
-                            "label.ipc-boolean-input__label[for='title-reviews-hide-spoilers']",
+                            "label.ipc-boolean-input__label[for='title-reviews-hide-spoilers']",  # noqa: E501
                         )
                     )
                 )
@@ -224,7 +231,9 @@ class IMDbProductionScraper:
 
     def _extract_and_append_batch(self, writer, seen_ids, source_url, target_count):
         soup = BeautifulSoup(self.driver.page_source, "html.parser")
-        review_containers = soup.select("div.ipc-list-card[data-testid='review-card-parent']")
+        review_containers = soup.select(
+            "div.ipc-list-card[data-testid='review-card-parent']"
+        )
 
         new_this_batch = 0
 
@@ -259,7 +268,9 @@ class IMDbProductionScraper:
             summary = summary_link.get_text(strip=True) if summary_link else ""
 
             review_elem = container.select_one("div.ipc-html-content-inner-div")
-            review_text = review_elem.get_text(separator="\n", strip=True) if review_elem else ""
+            review_text = (
+                review_elem.get_text(separator="\n", strip=True) if review_elem else ""
+            )
 
             upvotes_elem = container.select_one("span.ipc-voting__label__count--up")
             upvotes = upvotes_elem.get_text(strip=True) if upvotes_elem else "0"
@@ -333,7 +344,9 @@ class IMDbProductionScraper:
                     print(f"\n\n[Success] Target of {target_count} reviews reached!")
                     break
 
-                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                self.driver.execute_script(
+                    "window.scrollTo(0, document.body.scrollHeight);"
+                )
                 time.sleep(random.uniform(3.0, 5.0))
 
                 try:
@@ -367,10 +380,14 @@ class IMDbProductionScraper:
                     )
                     file.flush()
                     if final_saved > 0:
-                        print(f"Swept up {final_saved} remaining reviews at the bottom.")
+                        print(
+                            f"Swept up {final_saved} remaining reviews at the bottom."
+                        )
                     break
 
-        print(f"\nPipeline Finished. Final dataset size: {len(seen_ids)} reviews in {csv_file}")
+        print(
+            f"\nPipeline Finished.Final data size: {len(seen_ids)} reviews in {csv_file}"  # noqa: E501
+        )
         return csv_file
 
 
@@ -382,7 +399,9 @@ def load_to_database(movie_name, movie_id, csv_file_path):
         return False
 
     print(f"\n[Database] Confirmed data file exists at: {csv_file_path}")
-    print(f"[Database] Connecting to database to load data for '{movie_name}' ({movie_id})...")
+    print(
+        f"[Database] Connecting to database to load data for '{movie_name}' ({movie_id})..."  # noqa: E501
+    )
 
     try:
         conn = psycopg2.connect(**get_db_connection_params())

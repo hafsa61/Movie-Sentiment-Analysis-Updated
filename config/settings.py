@@ -49,6 +49,4 @@ def get_db_connection_params() -> dict:
 
 def get_sqlalchemy_uri() -> str:
     """Return SQLAlchemy database URI."""
-    return (
-        f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    )
+    return f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"

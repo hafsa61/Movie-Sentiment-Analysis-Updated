@@ -10,7 +10,6 @@ Steps:
 import argparse
 import subprocess
 import sys
-from pathlib import Path
 
 from config.settings import (
     IMDB_EMAIL,
@@ -115,7 +114,9 @@ def main():
         run_report_notebook()
         return
 
-    movie_name = args.movie or input("Enter the movie name (e.g., 'Inception'): ").strip()
+    movie_name = (
+        args.movie or input("Enter the movie name (e.g., 'Inception'): ").strip()
+    )
     if not movie_name:
         print("No movie name provided. Exiting.")
         sys.exit(1)
