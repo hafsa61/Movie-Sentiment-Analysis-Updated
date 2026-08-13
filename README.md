@@ -1,4 +1,5 @@
 # IMDb Movie Sentiment Analysis Pipeline
+![CI Pipeline](https://github.com/hafsa61/Movie-Sentiment-Analysis-Updated/actions/workflows/ci.yml/badge.svg)
 
 An end-to-end pipeline that scrapes IMDb movie reviews, loads them into PostgreSQL, and generates an HTML analytics report with sentiment-oriented KPIs and visualizations.
 

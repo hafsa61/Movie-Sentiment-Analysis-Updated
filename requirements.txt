@@ -1,10 +1,14 @@
 beautifulsoup4==4.12.2
+black
+flake8
 Flask==2.3.3
 Flask-CORS==4.0.0
 matplotlib
 nltk==3.8.1
 pandas
+pre-commit
 psycopg2-binary
+pytest
 python-dotenv
 requests==2.31.0
 seaborn
