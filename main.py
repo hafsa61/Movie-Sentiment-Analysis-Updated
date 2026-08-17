@@ -4,12 +4,17 @@ Unified entry point for the IMDb Sentiment Analysis pipeline.
 Steps:
   1. Scrape IMDb reviews for a movie
   2. Load scraped data into PostgreSQL
-  3. (Optional) Generate the HTML extraction report
+  3. Run the sentiment analysis pipeline (preprocessing -> features -> predict)
+     on the freshly scraped reviews
+  4. (Optional) Generate the HTML extraction report
 """
 
 import argparse
 import subprocess
 import sys
+from pathlib import Path
+
+import pandas as pd
 
 from config.settings import (
     IMDB_EMAIL,
@@ -19,6 +24,22 @@ from config.settings import (
     REVIEW_TARGET_COUNT,
 )
 from src.scraper import IMDbProductionScraper, load_to_database
+from src.preprocessing import get_lemmatizer, load_stopwords, preprocess_dataframe
+from src.features import (
+    add_sentiment_features,
+    enrich_keywords_with_wordnet,
+    extract_top_keywords,
+)
+from src.predict import run_inference_pipeline
+
+# logging_setup.py has moved between config/ and src/ during refactors —
+# try both so this keeps working regardless of where it currently lives.
+try:
+    from src.logging_setup import get_logger
+except ImportError:
+    from config.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 def run_scrape_pipeline(movie_name: str, target_count: int) -> tuple[str, str] | None:
@@ -41,6 +62,64 @@ def run_scrape_pipeline(movie_name: str, target_count: int) -> tuple[str, str] |
         csv_path = scraper.fetch_and_store_reviews(movie_id, target_count=target_count)
         load_to_database(movie_name, movie_id, csv_path)
         return movie_id, csv_path
+
+
+def run_sentiment_analysis(movie_id: str, csv_path: str) -> dict | None:
+    """
+    Run the preprocessing -> features -> predict pipeline on the reviews
+    just scraped for `movie_id`, and write an enriched CSV (with sentiment
+    labels and scores) alongside the original.
+    """
+    logger.info(
+        f"Starting sentiment analysis for movie_id={movie_id}",
+        extra={"extra_fields": {"csv_path": csv_path}},
+    )
+
+    try:
+        df = pd.read_csv(csv_path)
+
+        # preprocess_dataframe only dedupes/fills missing values — it does
+        # NOT strip punctuation or stopwords, so add_sentiment_features
+        # below scores the real review text (negation, punctuation, and
+        # capitalization intact) rather than a mangled version of it.
+        df = preprocess_dataframe(df)
+        df = add_sentiment_features(df)
+
+        stop_words = load_stopwords()
+        lemmatizer = get_lemmatizer()
+        top_keyword_counts = extract_top_keywords(
+            df["Review"].tolist(), stop_words, lemmatizer=lemmatizer
+        )
+        top_keywords = enrich_keywords_with_wordnet(top_keyword_counts)
+
+        result, labeled_df = run_inference_pipeline(df, top_keywords)
+
+        analyzed_path = Path(csv_path).parent / f"Analyzed_{movie_id}.csv"
+        labeled_df.to_csv(analyzed_path, index=False)
+
+        logger.info(
+            "Sentiment analysis complete",
+            extra={
+                "extra_fields": {
+                    "movie_id": movie_id,
+                    "total_reviews": result["total_reviews"],
+                    "sentiment_counts": result["sentiment_counts"],
+                    "avg_rating": result["avg_rating"],
+                    "output_csv": str(analyzed_path),
+                }
+            },
+        )
+
+        print(f"\n[Analysis] {result['summary']}")
+        print(
+            f"[Analysis] {result['total_reviews']} reviews analyzed -> {analyzed_path}"
+        )
+        return result
+
+    except Exception as exc:
+        logger.error(f"Sentiment analysis failed: {exc}", exc_info=True)
+        print(f"[Analysis] Failed: {exc}", file=sys.stderr)
+        return None
 
 
 def run_report_notebook() -> None:
@@ -85,7 +164,7 @@ def run_report_notebook() -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run the full IMDb scraping and sentiment analysis pipeline."
+        description="Run the full IMDb scraping, sentiment analysis, and reporting pipeline."  # noqa: E501
     )
     parser.add_argument(
         "movie",
@@ -99,6 +178,11 @@ def main():
         help=f"Number of reviews to scrape (default: {REVIEW_TARGET_COUNT})",
     )
     parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Skip the sentiment analysis step after scraping",
+    )
+    parser.add_argument(
         "--report",
         action="store_true",
         help="Generate the HTML extraction report after scraping",
@@ -106,7 +190,7 @@ def main():
     parser.add_argument(
         "--report-only",
         action="store_true",
-        help="Skip scraping and only generate the report from existing DB data",
+        help="Skip scraping and analysis, and only generate the report from existing DB data",  # noqa: E501
     )
     args = parser.parse_args()
 
@@ -122,7 +206,15 @@ def main():
         sys.exit(1)
 
     result = run_scrape_pipeline(movie_name, args.target)
-    if result and args.report:
+    if not result:
+        return
+
+    movie_id, csv_path = result
+
+    if not args.skip_analysis:
+        run_sentiment_analysis(movie_id, csv_path)
+
+    if args.report:
         run_report_notebook()
 
 
